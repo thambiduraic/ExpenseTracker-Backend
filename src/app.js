@@ -16,29 +16,36 @@ const { FRONTEND_URL } = require('./config/env');
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
-const allowedOrigins = (FRONTEND_URL || 'http://localhost:5173')
+// Clean the allowed origins from environment variables
+const allowedOrigins = (FRONTEND_URL || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
-  .map(url => url.trim().replace(/\/$/, '')); // Remove trailing slashes for robust matching
+  .map(url => url.trim().replace(/\/$/, ''));
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     
-    // Clean origin by removing trailing slash if present
     const cleanOrigin = origin.replace(/\/$/, '');
     
     if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked request from origin: ${origin}`);
+      // Log exactly what's failing to help with Render/Vercel debugging
+      console.warn(`[CORS Blocked] Origin: ${origin} not in allowed list: ${allowedOrigins.join(', ')}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight for all routes
+
 app.use(express.json());
 
 // ── Health Check ──────────────────────────────────────────────

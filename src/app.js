@@ -16,21 +16,28 @@ const { FRONTEND_URL } = require('./config/env');
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
-const allowedOrigins = FRONTEND_URL ? FRONTEND_URL.split(',') : ['http://localhost:5173'];
+const allowedOrigins = (FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(url => url.trim().replace(/\/$/, '')); // Remove trailing slashes for robust matching
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    
+    // Clean origin by removing trailing slash if present
+    const cleanOrigin = origin.replace(/\/$/, '');
+    
+    if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 app.use(express.json());
 
